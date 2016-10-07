@@ -8,13 +8,18 @@ import me.anmt.toys.urlshrinker.model.Result;
 
 public class ApiController extends Controller {
 
-	private Mapper mapperService = new Mapper();
+	private Mapper mapper = new Mapper();
 
 	/**
 	 * 默认action
 	 */
 	public void index() {
-		renderJson(new Result(404).getResult());
+		try {
+			renderJson(Mapper.interesting());
+		} catch (Exception e) {
+			e.printStackTrace();
+			renderJson(new Result(500).getResult());
+		}
 	}
 
 	/**
@@ -22,12 +27,12 @@ public class ApiController extends Controller {
 	 */
 	public void query() {
 		try {
-			String key = this.getPara("key");
+			String key = getPara("key");
 			if (Mapper.isNotBlank(key)) {
-				Map mapper = mapperService.queryMapperByIdOrUrl(key);
-				renderJson(mapper != null ? new Result(200, mapper).getResult() : new Result(404).getResult());
+				Map map = mapper.queryMapperByIdOrUrl(key);
+				renderJson(map != null ? new Result(200, map).getResult() : new Result(404).getResult());
 			} else {
-				renderJson(new Result(404).getResult());
+				renderJson(Mapper.interesting());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -40,12 +45,12 @@ public class ApiController extends Controller {
 	 */
 	public void add() {
 		try {
-			String url = this.getPara("url");
+			String url = getPara("url");
 			if (Mapper.isNotBlank(url)) {
-				Map mapper = mapperService.addMapperByUrlAndRHost(url, getRequest().getRemoteHost());
-				renderJson(mapper != null ? new Result(204, mapper).getResult() : new Result(403).getResult());
+				Map map = mapper.addMapperByUrlAndRHost(url, getRequest().getRemoteHost());
+				renderJson(map != null ? new Result(204, map).getResult() : new Result(403).getResult());
 			} else {
-				renderJson(new Result(404).getResult());
+				renderJson(Mapper.interesting());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

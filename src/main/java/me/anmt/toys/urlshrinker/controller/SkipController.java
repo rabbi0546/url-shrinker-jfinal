@@ -9,21 +9,26 @@ import me.anmt.toys.urlshrinker.utils.SysContext;
 
 public class SkipController extends Controller {
 	
-	private Mapper mapperService = new Mapper();
+	private Mapper mapper = new Mapper();
 	
 	/**
 	 * 默认action
 	 */
 	public void index(){
-		String key = this.getPara(0);
-		if(Mapper.isNotBlank(key)){
-			// 如果用户提交的是一个url地址，重定向到默认的url地址上
-			if(mapperService.isUrl(key))
-				redirect(SysContext.DEFAULTURL);
-			Map mapper = mapperService.queryMapperByIdOrUrl(key);
-			redirect(mapper == null ? SysContext.DEFAULTURL : mapper.getUrl().toString());
-		} else {
-			renderJson(new Result(404).getResult());
+		try {
+			String key = getPara(0);
+			if(Mapper.isNotBlank(key)){
+				// 如果用户提交的是一个url地址，重定向到默认的url地址上
+				if(mapper.isUrl(key))
+					redirect(SysContext.DEFAULTURL);
+				Map map = mapper.queryMapperByIdOrUrl(key);
+				redirect(map == null ? SysContext.DEFAULTURL : map.getUrl().toString());
+			} else {
+				renderJson(Mapper.interesting());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			renderJson(new Result(500).getResult());
 		}
 	}
 }

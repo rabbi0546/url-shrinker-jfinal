@@ -1,6 +1,8 @@
 package me.anmt.toys.urlshrinker.model;
 
+import java.util.HashMap;
 import java.util.Random;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 import com.jfinal.plugin.redis.Cache;
@@ -56,13 +58,21 @@ public class Mapper {
 		return (s1 != null) && (s1.equals(s2));
 	}
 	
+	public static java.util.Map<String, Object> interesting(){
+		java.util.Map<String, Object> map = new HashMap<String, Object>();
+		Random random = new Random();
+		map.put("code", random.nextInt(900)+100);
+		map.put("data", UUID.randomUUID().toString().replace("-", ""));
+		return map;
+	}
+	
 	/**
 	 * 判断是否是URL地址，注意URL地址必须携带“http://”或“https://”
-	 * @param url URL地址
+	 * @param url URL地址(大小写不敏感)
 	 * @return 判断结果
 	 */
 	public Boolean isUrl(String url){
-		Pattern pattern = Pattern.compile("^((https|http)?:\\/\\/)[^\\s]+");
+		Pattern pattern = Pattern.compile("(?i)^((https|http)?:\\/\\/)[^\\s]+");
 		return pattern.matcher(url).matches();
 	}
 	
@@ -96,11 +106,10 @@ public class Mapper {
 	
 	/**
 	 * 添加远程主机到redis，限制其频繁访问
-	 * @param remoteHost 远程主机（自动转小写）
+	 * @param remoteHost 远程主机
 	 * @return 操作的状态码
 	 */
 	public String addRemoteHost(String remoteHost){
-		remoteHost = remoteHost.toLowerCase();
 		Jedis jedis = getJedis();
 		String result = jedis.setex(remoteHost, SysContext.INTERVAL, remoteHost);
 		closeJedis(jedis);
@@ -109,11 +118,10 @@ public class Mapper {
 	
 	/**
 	 * remoteHost是否在redis中
-	 * @param remoteHost 远程主机（自动转小写）
+	 * @param remoteHost 远程主机
 	 * @return 在redis中返回true，不在返回false
 	 */
 	public Boolean existRemoteHost(String remoteHost){
-		remoteHost = remoteHost.toLowerCase();
 		Jedis jedis = getJedis();
 		Boolean result = equals(jedis.get(remoteHost), remoteHost);
 		closeJedis(jedis);
@@ -122,12 +130,11 @@ public class Mapper {
 	
 	/**
 	 * 添加url（带时限的），在s秒后自动消失
-	 * @param url url字符串（自动转小写，执行前务必先判断是否为正确的url地址）
-	 * @param s 时限，单位秒，不能为null，为0的话一添加就消失
+	 * @param url url字符串（执行前务必先判断是否为正确的url地址）
+	 * @param s 时限，单位秒，不能为null，为0指一添加就消失
 	 * @return id-url映射对象
 	 */
 	private Map addUrl(String url, Integer s){
-		url = url.toLowerCase();
 		Jedis jedis = getJedis();
 		String id =  idGenerater(SysContext.IDLEN, SysContext.IDCOUNT);
 		jedis.setex(id, s, url);
@@ -139,20 +146,21 @@ public class Mapper {
 	/**
 	 * 根据ID或URL查询这个ID-URL映射对象
 	 * @param key ID或URL的值
-	 * @return ID-URL映射对象
+	 * @return ID-URL映射对象，查不到则为null
 	 */
 	public Map queryMapperByIdOrUrl(String key){
-		key = key.toLowerCase();
 		Jedis jedis = getJedis();
-		String value = jedis.get(key);
-		closeJedis(jedis);
-		if (isNotBlank(value)) {
-			if(isUrl(key))
-				return new Map(value, key);
-			else
-				return new Map(key, value);
-		} else {
-			return null;
+		if(isUrl(key)){
+			// 说明key为url
+			String value = jedis.get(key);
+			closeJedis(jedis);
+			return isNotBlank(value) ? new Map(value, key) : null;
+		}else{
+			// 说明key为id 
+			key = key.toLowerCase();
+			String value = jedis.get(key);
+			closeJedis(jedis);
+			return isNotBlank(value) ? new Map(key, value) : null;
 		}
 	}
 	
@@ -167,10 +175,10 @@ public class Mapper {
 		if (!isUrl(url) || existRemoteHost(remoteHost)) {
 			return null;
 		}
-		Map mapper = queryMapperByIdOrUrl(url);
-		if(mapper != null){
+		Map map = queryMapperByIdOrUrl(url);
+		if(map != null){
 			// 说明这个url对应的id已经存在
-			return mapper;
+			return map;
 		} else {
 			addRemoteHost(remoteHost);
 			return addUrl(url, SysContext.IDLIFE);
